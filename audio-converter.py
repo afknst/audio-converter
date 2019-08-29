@@ -55,7 +55,7 @@ def parse_cli():
 
 
 args = parse_cli()
-output = "/home/aforest/pCloudDrive/Music/ACG/"
+output = "~/Music/"
 bar = tqdm(args.input,
            bar_format='{l_bar}{bar}{{{n_fmt}/{total_fmt}{postfix}}}',
            dynamic_ncols=True)
