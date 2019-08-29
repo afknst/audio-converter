@@ -14,6 +14,7 @@ Add to path (change `acflac` to whatever you like):
 
 `ln -s <This script> <Somewhere in PATH/acflac>`
 
+
 Convert all .wav files in curent directory with `wav2flac`:
 
 `alias wav2flac="find . -name '*.wav' -exec acflac -r {} +"`
