@@ -16,6 +16,13 @@ def parse_cli():
             nargs='+',
         )
         parser.add_argument(
+            "-cl",
+            '--compression_level',
+            dest='level',
+            type=int,
+            choices=range(13),
+        )
+        parser.add_argument(
             '-i',
             '--inplace',
             dest='inplace',
@@ -48,6 +55,7 @@ def parse_cli():
         parser.set_defaults(inplace=True)
         parser.set_defaults(replace=False)
         parser.set_defaults(title=False)
+        parser.set_defaults(level=5)
         return parser.parse_args()
     except argparse.ArgumentError as err:
         print(str(err))
@@ -59,6 +67,7 @@ output = "~/Music/"
 bar = tqdm(args.input,
            bar_format='{l_bar}{bar}{{{n_fmt}/{total_fmt}{postfix}}}',
            dynamic_ncols=True)
+cl = args.level
 
 for file in bar:
     head, tail = os.path.split(file)
@@ -72,7 +81,9 @@ for file in bar:
     bar.set_description(head)
 
     try:
-        ffmpeg.input(file).output('.Noname.flac', loglevel="quiet").run()
+        ffmpeg.input(file).output('.Noname.flac',
+                                  loglevel="quiet",
+                                  compression_level=cl).run()
         data = mutagen.File('.Noname.flac')
         sample_rate = data.info.sample_rate
         bps = data.info.bits_per_sample
@@ -85,20 +96,34 @@ for file in bar:
         else:
             title = os.path.splitext(file)[0]
 
+        try:
+            artist = data.tags['artist'][0]
+        except:
+            artist = 'Unknown'
+
         if sample_rate > 96e3:
             ffmpeg.input('.Noname.flac').output('.temp.flac',
                                                 ar='96k',
-                                                loglevel="quiet").run()
+                                                loglevel="quiet",
+                                                compression_level=cl).run()
             os.remove('.Noname.flac')
             shutil.move('.temp.flac', '.Noname.flac')
 
-        if args.inplace:
-            shutil.move('.Noname.flac', title + '.flac')
-        else:
-            shutil.move('.Noname.flac', output + title + '.flac')
+        def move_to(location):
+            dst = location
+            if os.path.exists(dst + '.flac'):
+                dst += '_' + artist
+                print('Destination already exists.')
+                print('Renamed to: ' + os.path.split(dst + '.flac')[1])
+            shutil.move('.Noname.flac', dst + '.flac')
 
         if args.replace:
             os.remove(file)
+
+        if args.inplace:
+            move_to(title)
+        else:
+            move_to(output + title)
 
         bar.set_postfix_str(
             str(int(sample_rate * 1e-3)) + 'kHz, ' + str(bps) + 'bit')
