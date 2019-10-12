@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 
-import ffmpeg
-import mutagen
-import argparse
-import shutil
-import os
-import sys
+import ffmpeg, mutagen
+import os, sys, shutil, argparse
 from tqdm import tqdm
 
 
@@ -22,6 +18,12 @@ def parse_cli():
             dest='level',
             type=int,
             choices=range(13),
+        )
+        parser.add_argument(
+            '-nc',
+            '--no-cover',
+            dest='cover',
+            action='store_false',
         )
         parser.add_argument(
             '-i',
@@ -56,6 +58,7 @@ def parse_cli():
         parser.set_defaults(inplace=True)
         parser.set_defaults(replace=False)
         parser.set_defaults(title=False)
+        parser.set_defaults(cover=True)
         parser.set_defaults(level=5)
         return parser.parse_args()
     except argparse.ArgumentError as err:
@@ -63,8 +66,18 @@ def parse_cli():
         sys.exit(2)
 
 
+def find_cover(dir=os.getcwd(), exts=['.jpg']):
+    l = [
+        os.path.join(root, file) for ext in exts
+        for root, dirs, files in os.walk(dir) for file in files
+        if file.lower().endswith(ext)
+    ]
+    return sorted([(os.path.getsize(file), file) for file in l],
+                  key=lambda s: s[0])[-1][1]
+
+
 args = parse_cli()
-output = "~/Music/"
+output = os.path.expanduser("~/Music/")
 bar = tqdm(args.input,
            bar_format='{l_bar}{bar}{{{n_fmt}/{total_fmt}{postfix}}}',
            dynamic_ncols=True)
@@ -96,6 +109,21 @@ for file in bar:
                 title = os.path.splitext(file)[0]
         else:
             title = os.path.splitext(file)[0]
+
+        if args.cover:
+            try:
+                if len(data.pictures) < 1:
+                    pic = mutagen.flac.Picture()
+
+                    with open(find_cover(), "rb") as f:
+                        pic.data = f.read()
+
+                    pic.type = mutagen.id3.PictureType.COVER_FRONT
+                    pic.mime = u"image/jpeg"
+                    data.add_picture(pic)
+                    data.save()
+            except Exception as e:
+                print(e)
 
         try:
             artist = data.tags['artist'][0]
